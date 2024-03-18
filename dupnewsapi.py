@@ -6,8 +6,9 @@ from urllib.request import urlopen
 import io
 from streamlit_card import card as st_card
 from applg import user_exists
+import os
 
-apikey = vars.API_KEY
+apikey = str(os.environ.get("API_KEY"))
 category = ['--Select--', 'Trending🔥 News', 'Favourite💙 Topics', 'Search🔍 Topic']
 
 
