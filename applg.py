@@ -8,8 +8,9 @@ from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 import test1
 import json
+import os
 
-json_data = json.loads(vars.GET_JSON_CONTENTS)
+json_data = json.loads(os.environ.get("GET_JSON_CONTENTS"))
 cred = credentials.Certificate(json_data)
 
 
