@@ -7,14 +7,9 @@ import pandas as pd
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 import test1
-from dotenv import load_dotenv
-import os
 import json
 
-load_dotenv(".env")
-
-json_data_str = os.getenv('GET_JSON_CONTENTS')
-json_data = json.loads(json_data_str)
+json_data = json.loads(vars.GET_JSON_CONTENTS)
 cred = credentials.Certificate(json_data)
 
 
