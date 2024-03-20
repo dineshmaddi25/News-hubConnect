@@ -34,6 +34,8 @@ Save Favorites: Save articles that interest you for later reading or reference.
 Connect Your Blog: Integrate your blogging platform with NewHub to easily post articles and share your content.
 
 
+
+
 Live Demo
 
 You can access a live demo of NewHub at https://news-hubconnect.onrender.com/. 
