@@ -35,6 +35,27 @@ Connect Your Blog: Integrate your blogging platform with NewHub to easily post a
 
 
 
+Demo to Work with web---
+
+Home 
+
+![Screenshot 2024-03-20 173144](https://github.com/dineshmaddi25/News-hubConnect/assets/123318750/3dcf5e93-f773-4b06-96bd-6264ef477299)
+
+Search Engine
+
+![Screenshot 2024-03-20 173221](https://github.com/dineshmaddi25/News-hubConnect/assets/123318750/7962a686-b95d-4a17-aa0e-6d4132cbdd8b)
+
+Explore
+
+![Screenshot 2024-03-20 173232](https://github.com/dineshmaddi25/News-hubConnect/assets/123318750/631d0f8e-a107-45d0-8b60-46779c7396ac)
+
+Save Articles
+
+![Screenshot 2024-03-20 173311](https://github.com/dineshmaddi25/News-hubConnect/assets/123318750/096f07e7-4e10-45d2-9476-148d62b33b8b)
+
+Dynamic-BLog
+
+![Screenshot 2024-03-20 173401](https://github.com/dineshmaddi25/News-hubConnect/assets/123318750/ef76c688-6384-4ba8-b023-f6553e444289)
 
 Live Demo
 
