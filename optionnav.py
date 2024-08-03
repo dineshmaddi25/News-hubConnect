@@ -59,10 +59,10 @@ if selected == "Home":
                 "url": "https://github.com/dineshmaddi25"
             },
             {
-                "title": "My Blog",
+                "title": "Check Out My Portfolio",
                 "text": "Read my latest blog posts!",
                 "image_path": r"Screenshot 2024-03-17 100835.png",
-                "url": "https://www.linkedin.com/in/dinesh-maddi/"  # Replace with your blog URL
+                "url": "https://dineshmaddiportfolio.netlify.app/"  # Replace with your blog URL
             }
         ]
 
