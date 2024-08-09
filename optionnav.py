@@ -92,5 +92,5 @@ elif selected == "News Blog":
 elif selected == "Saved Articles":
     user_email = st.text_input("Enter your Email to Validate??")
     display_saved_articles(user_email)
-elif selected == "Login/Sign_UP":
+elif selected == "Content Connect":
     applg.main()
