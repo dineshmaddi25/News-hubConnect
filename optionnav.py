@@ -10,7 +10,7 @@ st.set_page_config(page_title='InNews🇮🇳: A Summarised News📰 Portal', pa
 image = Image.open('./Meta/newspaper.png')
 selected = option_menu(
     menu_title=None,
-    options=["Home", "News Blog", "Saved Articles", "Login/Sign_UP"],
+    options=["Home", "News Blog", "Saved Articles", "Content Connect"],
     default_index=0,
     orientation="horizontal",
 )
