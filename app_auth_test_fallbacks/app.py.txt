@@ -5,103 +5,123 @@ import requests
 from urllib.request import urlopen
 import io
 from streamlit_card import card as st_card
-from authlib.integrations.streamlit_client import OAuth
+from oauthlib.oauth2 import WebApplicationClient
 import os
+import json
 
-# Setup OAuth for Google Sign-In
-oauth = OAuth()
-oauth.register(
-    name='google',
-    client_id=os.getenv("GOOGLE_CLIENT_ID"),
-    client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
-    authorize_url="https://accounts.google.com/o/oauth2/auth",
-    authorize_params=None,
-    access_token_url="https://accounts.google.com/o/oauth2/token",
-    access_token_params=None,
-    refresh_token_url=None,
-    client_kwargs={'scope': 'openid profile email'},
-)
+# Constants and API keys
+apikey = str(os.environ.get("API_KEY"))
+google_client_id = os.environ.get("GOOGLE_CLIENT_ID")
+google_client_secret = os.environ.get("GOOGLE_CLIENT_SECRET")
+google_discovery_url = "https://accounts.google.com/.well-known/openid-configuration"
 
-# Fetch API key
-apikey = str(os.getenv("API_KEY"))
 category = ['--Select--', 'Trending🔥 News', 'Favourite💙 Topics', 'Search🔍 Topic']
 
-# Define countries and their language codes
+# Function to create a Google OAuth2 client
+def create_google_oauth_client():
+    client = WebApplicationClient(google_client_id)
+    return client
+
+def get_google_provider_cfg():
+    return requests.get(google_discovery_url).json()
+
+def add_notes():
+    st.sidebar.subheader("Notes")
+    user_notes = st.sidebar.text_area("Make Notes Here:")
+    if st.sidebar.button("Save Notes"):
+        save_notes(user_notes)
+
+def add_interesting_facts():
+    st.sidebar.subheader("Interesting Facts 💡")
+    facts = [
+        "Did you know? The first email was sent by Ray Tomlinson in 1971.",
+        "The average person spends around 6 years of their life dreaming.",
+        "Honey never spoils. Archaeologists have found pots of honey in ancient Egyptian tombs that are over 3,000 years old and still perfectly edible."
+    ]
+    for fact in facts:
+        st.sidebar.markdown("- " + fact)
+    st.sidebar.markdown("[See more interesting facts](https://www.rd.com/list/interesting-facts/)")
+
+def save_notes(notes):
+    st.sidebar.write("Notes saved successfully!")
+
+# Country language codes for NewsAPI
 countries = {
-    'Saudi Arabia': 'ar', 'Germany': 'de', 'United States': 'en', 'Spain': 'es',
-    'France': 'fr', 'India': 'hi', 'Italy': 'it', 'Netherlands': 'nl', 'Norway': 'no',
-    'Portugal': 'pt', 'Russia': 'ru', 'Sweden': 'sv', 'Unknown Country': 'ud', 'China': 'zh'
+    'Saudi Arabia': 'ar',
+    'Germany': 'de',
+    'United States': 'us',
+    'Spain': 'es',
+    'France': 'fr',
+    'India': 'in',
+    'Italy': 'it',
+    'Netherlands': 'nl',
+    'Norway': 'no',
+    'Portugal': 'pt',
+    'Russia': 'ru',
+    'Sweden': 'se',
+    'Unknown Country': 'ud',
+    'China': 'cn'
 }
 
-# Initialize SQLite Database
+# Database initialization and optimization
 def initialize_database():
     conn = sqlite3.connect('news_articles.db')
     c = conn.cursor()
-    # Create articles table with uniqueness on email and title
-    c.execute('''CREATE TABLE IF NOT EXISTS articles 
-                 (id INTEGER PRIMARY KEY, email TEXT, title TEXT, author TEXT, 
-                  publishedAt TEXT, source TEXT, description TEXT, content TEXT, 
-                  imageUrl TEXT, url TEXT, UNIQUE(email, title))''')
+    # Create articles table with UNIQUE constraint on (email, title)
+    c.execute('''CREATE TABLE IF NOT EXISTS articles (
+                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 email TEXT NOT NULL,
+                 title TEXT NOT NULL,
+                 author TEXT,
+                 publishedAt TEXT,
+                 source TEXT,
+                 description TEXT,
+                 content TEXT,
+                 imageUrl TEXT,
+                 url TEXT,
+                 UNIQUE(email, title)
+                 )''')
     conn.commit()
     conn.close()
 
-# Function to insert or update an article
+# Function to insert email into the database
+def insert_email(email):
+    conn = sqlite3.connect('news_articles.db')
+    c = conn.cursor()
+    c.execute("INSERT OR IGNORE INTO articles (email) VALUES (?)", (email,))
+    conn.commit()
+    conn.close()
+
+# Function to save article to the database
 def save_article_to_database(article, email):
     conn = sqlite3.connect('news_articles.db')
     c = conn.cursor()
+    
     try:
-        # Insert or replace article for the user if the title exists
-        c.execute('''INSERT OR REPLACE INTO articles 
+        # Insert or replace the article for the user
+        c.execute('''INSERT OR REPLACE INTO articles
                      (email, title, author, publishedAt, source, description, content, imageUrl, url)
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
                   (email, article.get('title'), article.get('author'), article.get('publishedAt'),
                    article['source']['name'], article.get('description'), article.get('content', ''),
                    article.get('urlToImage', ''), article.get('url', '')))
-        st.success(f"Article '{article['title']}' saved successfully for user '{email}'")
+        st.success(f"Article '{article['title']}' saved/updated successfully for user '{email}'")
     except sqlite3.Error as e:
-        st.error(f"Failed to save article: {str(e)}")
-    conn.commit()
-    conn.close()
+        st.error(f"Database error: {e}")
+    finally:
+        conn.commit()
+        conn.close()
 
-# Fetch news based on the topic
-def fetch_news_search_topic(topic, country):
-    language_code = countries.get(country, 'en')
-    url = f"https://newsapi.org/v2/everything?q={topic}&language={language_code}&apiKey={apikey}"
-    return requests.get(url).json()
+# Display saved articles
+def display_saved_articles_as_cards(title, text, image_url, url, key=None):
+    st_card(
+        title=title,
+        text=text,
+        image=image_url,
+        url=url,
+        key=key
+    )
 
-# Fetch trending news
-def fetch_top_news(country):
-    language_code = countries.get(country, 'en')
-    url = f"https://newsapi.org/v2/top-headlines?language={language_code}&apiKey={apikey}"
-    return requests.get(url).json()
-
-# Fallback mechanism if News API fails (web scraping as a backup)
-def fallback_news_search(topic):
-    # Placeholder logic for scraping a news site when API fails
-    st.warning(f"Using fallback method to fetch news for '{topic}'.")
-    return []
-
-# Display fetched news articles with saving functionality
-def display_news(articles, email):
-    for i, article in enumerate(articles):
-        st.subheader(article['title'])
-        st.write(f"Published on: {article['publishedAt']} by {article.get('author', 'Unknown')}")
-        st.write(f"Source: {article['source']['name']}")
-        st.write(article['description'])
-
-        # Display image if available
-        image_url = article.get('urlToImage')
-        if image_url:
-            st.image(image_url, caption='Image', use_column_width=True)
-        else:
-            st.image('./Meta/no_image.jpg', use_column_width=True)
-
-        # Provide an option to save the article
-        if st.button(f"Save Article {i + 1}", key=f"save_article_{i}"):
-            save_article_to_database(article, email)
-        st.markdown(f"[Read more at {article['source']['name']}]({article['url']})")
-
-# Display saved articles as cards
 def display_saved_articles(email):
     conn = sqlite3.connect('news_articles.db')
     c = conn.cursor()
@@ -110,79 +130,147 @@ def display_saved_articles(email):
     conn.close()
 
     if not saved_articles:
-        st.warning("No saved articles found.")
+        st.warning("No saved articles found for this email.")
         return
 
     st.subheader("Saved Articles:")
     for i, article in enumerate(saved_articles):
-        st_card(
-            title=article[2],  # title
-            text=article[6],   # content/description
-            image=article[8],  # image URL
-            url=article[9],    # article URL
-            key=f"saved_article_{i}"
-        )
+        card_key = f"saved_article_{i}"
+        display_saved_articles_as_cards(article[2], article[6], article[8], article[9], key=card_key)
 
-# Main function to handle the app
+# Fetch news via NewsAPI
+def fetch_news_search_topic(topic, country):
+    language_code = countries[country]
+    site = f"https://newsapi.org/v2/everything?q={topic}&language={language_code}&apiKey={apikey}"
+    return site
+
+def fetch_top_news(country):
+    language_code = countries[country]
+    site = f"https://newsapi.org/v2/top-headlines?country={language_code}&apiKey={apikey}"
+    return site
+
+def fetch_category_news(topic, country):
+    language_code = countries[country]
+    site = f"https://newsapi.org/v2/top-headlines?category={topic}&country={language_code}&apiKey={apikey}"
+    return site
+
+# Fetch news posters
+def fetch_news_poster(poster_link):
+    try:
+        u = urlopen(poster_link)
+        raw_data = u.read()
+        image = Image.open(io.BytesIO(raw_data))
+        st.image(image, use_column_width=True)
+    except:
+        image = Image.open('./Meta/no_image.jpg')
+        st.image(image, use_column_width=True)
+
+# Fallback mechanism (web scraping)
+def fallback_news_fetch(topic):
+    # Implement basic web scraping logic as fallback if NewsAPI fails
+    st.warning("NewsAPI limit reached. Switching to fallback method.")
+    # This is just a placeholder; actual scraping would require BeautifulSoup or similar.
+
+# Improved error handling
+def display_news(url, country, email):
+    try:
+        r = requests.get(url)
+        if r.status_code != 200:
+            st.error(f"Failed to fetch news. Status code: {r.status_code}")
+            fallback_news_fetch(country)  # Call fallback if API fails
+            return
+        
+        news_data = r.json()
+        articles = news_data.get('articles', [])
+        if not articles:
+            st.warning("No articles found.")
+            return
+
+        for i, article in enumerate(articles):
+            st.header(article['title'])
+            st.write(article['publishedAt'])
+            if article['author']:
+                st.write("Author:", article['author'])
+            st.write("Source:", article['source']['name'])
+            st.write("Description:", article['description'])
+            try:
+                image_url = article.get('urlToImage')
+                if image_url:
+                    image_data = requests.get(image_url).content
+                    image = Image.open(io.BytesIO(image_data))
+                    st.image(image, caption='Image', use_column_width=True)
+            except Exception as e:
+                st.error("Error loading image: " + str(e))
+                st.image(Image.open('./Meta/no_image.jpg'), use_column_width=True)
+
+            # Add button to display full content
+            button_key = f"article_{i}_button"
+            if st.button("Read Full Article", key=button_key):
+                content = article.get('content')
+                if content:
+                    st.write("Content:")
+                    st.write(content)
+                st.markdown(f"[Read more at {article['source']['name']}...]({article['url']})")
+            
+            save_button_key = f"save_article_{i}_
+            if st.button(f"Save Article {i + 1}", key=save_button_key):
+                save_article_to_database(article, email)
+
+    except requests.exceptions.RequestException as e:
+        st.error(f"Failed to connect to NewsAPI: {e}")
+        fallback_news_fetch(country)
+
+# Main app logic
 def main():
     initialize_database()
 
-    # Google OAuth login
-    st.sidebar.title("Login")
-    if 'user' not in st.session_state:
-        st.sidebar.write("Please login with Google")
-        if st.sidebar.button("Login"):
-            oauth.authorize_access_token()
-            user_info = oauth.google.parse_id_token()
-            st.session_state.user = user_info
-    else:
-        user_info = st.session_state.user
-        st.sidebar.success(f"Logged in as {user_info['email']}")
-        email = user_info['email']
+    # Google OAuth Authentication
+    st.title("News Hub Connect - Personalized News Experience")
+    
+    google_client = create_google_oauth_client()
+    google_cfg = get_google_provider_cfg()
+    authorization_endpoint = google_cfg["authorization_endpoint"]
 
-        # Show options after login
-        st.title("Welcome to News Hub Connect")
-        add_notes()  # Sidebar for adding notes
-        add_interesting_facts()  # Sidebar for interesting facts
+    # Create a login button
+    if st.button("Login with Google"):
+        request_uri = google_client.prepare_request_uri(
+            authorization_endpoint,
+            redirect_uri="http://localhost:8501/callback",  # Change to your callback URL
+            scope=["openid", "email", "profile"]
+        )
+        st.write(f"[Click here to login with Google]({request_uri})")
+    
+    # Simulate user authentication for demo (replace with real OAuth handling)
+    email = st.text_input('Enter Email Address to save articles')
 
-        # Country and category selection
-        country = st.selectbox("Select your Country", list(countries.keys()))
-        category_choice = st.selectbox("Select News Category", category)
+    if email:
+        insert_email(email)  # Insert email into the database
 
-        if category_choice == '--Select--':
-            st.warning("Please select a valid category.")
-        else:
-            if category_choice == category[1]:  # Trending news
-                news_data = fetch_top_news(country)
-                if 'articles' in news_data:
-                    display_news(news_data['articles'], email)
-                else:
-                    st.error("Failed to fetch trending news.")
+    # Add notes and interesting facts
+    add_notes()
+    add_interesting_facts()
 
-            elif category_choice == category[2]:  # Favorite topics
-                topic = st.selectbox("Choose your favourite topic", ['WORLD', 'TECHNOLOGY', 'BUSINESS', 'SPORTS'])
-                if topic:
-                    news_data = fetch_news_search_topic(topic, country)
-                    if 'articles' in news_data:
-                        display_news(news_data['articles'], email)
-                    else:
-                        st.error("Failed to fetch news for this topic.")
+    # Country and category selection
+    Countname = st.selectbox('Select your Country', list(countries.keys()))
+    cat_op = st.selectbox('Select your Category', category)
 
-            elif category_choice == category[3]:  # Search by topic
-                user_topic = st.text_input("Enter a topic")
-                if st.button("Search") and user_topic:
-                    news_data = fetch_news_search_topic(user_topic, country)
-                    if 'articles' in news_data:
-                        display_news(news_data['articles'], email)
-                    else:
-                        fallback_news = fallback_news_search(user_topic)  # Use fallback mechanism
-                        if fallback_news:
-                            display_news(fallback_news, email)
+    # Fetch news based on category selection
+    if cat_op == 'Search🔍 Topic':
+        topic = st.text_input("Enter Topic:")
+        if st.button("Search"):
+            if topic:
+                url = fetch_news_search_topic(topic, Countname)
+                display_news(url, Countname, email)
+            else:
+                st.warning("Please enter a search term.")
 
-        # Option to display saved articles
-        if st.sidebar.button("View Saved Articles"):
-            display_saved_articles(email)
+    elif cat_op == 'Trending🔥 News':
+        if st.button("Fetch Trending News"):
+            url = fetch_top_news(Countname)
+            display_news(url, Countname, email)
 
-# Run the app
-if __name__ == '__main__':
+    elif cat_op == 'Favourite💙 Topics':
+        display_saved_articles(email)
+
+if __name__ == "__main__":
     main()
